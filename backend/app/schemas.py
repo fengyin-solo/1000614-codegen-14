@@ -28,6 +28,26 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class ImportFailure(BaseModel):
+    """整批导入中逐条被拒绝的行及其原因。"""
+
+    行号: int
+    物料编号: str | None = None
+    批号: str | None = None
+    原因: str
+
+
+class ReagentImportResult(BaseModel):
+    """出入库单据导入结果：成功时给受影响台账行，失败时逐条列出原因且不写入。"""
+
+    ok: bool
+    message: str
+    posted: int = 0
+    skipped: int = 0
+    failures: list[ImportFailure] = Field(default_factory=list)
+    entries: list[dict[str, Any]] = Field(default_factory=list)
+
+
 
 class SampleEntry(BaseModel):
     """样品明细结构。"""
