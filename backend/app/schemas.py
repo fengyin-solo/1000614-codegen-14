@@ -28,6 +28,33 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class ImportPayload(BaseModel):
+    """整批导入出入库单据时提交的行集合。"""
+
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ImportRowError(BaseModel):
+    """导入时被拒绝的单行：行号、逐条原因与原始内容。"""
+
+    row: int
+    reasons: list[str]
+    values: dict[str, Any] = Field(default_factory=dict)
+
+
+class ImportResult(BaseModel):
+    """整批导入结果：入账、重复跳过与拒绝三段的汇总。"""
+
+    ok: bool
+    message: str
+    total: int = 0
+    posted: int = 0
+    duplicated: int = 0
+    rejected: int = 0
+    errors: list[ImportRowError] = Field(default_factory=list)
+    entries: list[dict[str, Any]] = Field(default_factory=list)
+
+
 
 class SampleEntry(BaseModel):
     """样品明细结构。"""

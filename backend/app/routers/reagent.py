@@ -1,11 +1,11 @@
-"""试剂耗材接口：维护试剂物料，覆盖冻结物料、解冻物料、登记耗尽等动作。"""
+"""试剂耗材接口：维护试剂物料，覆盖冻结物料、解冻物料、登记耗尽与出入库单据整批导入。"""
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas import ActionResult, EntryPayload, PageResult
+from app.schemas import ActionResult, EntryPayload, ImportPayload, ImportResult, PageResult
 from app.services.reagent import ReagentService
 
 router = APIRouter(prefix="/api/reagent", tags=["试剂耗材"])
@@ -28,6 +28,26 @@ def list_entries(
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
     items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
     return PageResult(items=items, total=total, page=page, size=size)
+
+
+@router.post("/import", response_model=ImportResult)
+def import_entries(payload: ImportPayload) -> ImportResult:
+    """整批导入出入库单据：按物料编号入账并重算结存。
+
+    同一批号在同一单据时间重复导入只入账一次；规格纯度不一致、数量为负、
+    单据时间早于上一次结存或物料已冻结的行逐条列出原因并拒绝写入。
+    """
+    if not payload.rows:
+        return ImportResult(ok=False, message="导入文件为空，没有可处理的出入库单据")
+    result = service.import_documents(payload.rows)
+    return ImportResult(**result)
+
+
+@router.get("/export")
+def export_entries() -> dict[str, Any]:
+    """导出试剂耗材清单：返回当前过滤条件下的全量数据。"""
+    items, total = service.list_entries(page=1, size=10000)
+    return {"module": "reagent", "total": total, "items": items}
 
 
 @router.get("/{entry_id}", response_model=dict)
@@ -56,10 +76,3 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     if entry is None:
         return ActionResult(ok=False, message=message)
     return ActionResult(ok=True, message=message, entry=entry)
-
-
-@router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出试剂耗材清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "reagent", "total": total, "items": items}
